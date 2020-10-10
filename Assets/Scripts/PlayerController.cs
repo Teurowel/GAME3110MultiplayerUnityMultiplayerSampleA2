@@ -24,8 +24,6 @@ public class PlayerController : MonoBehaviour
 
     private void FixedUpdate()
     {
-        Debug.Log(moveDir);
-        //rb.AddForce(moveDir, ForceMode.VelocityChange);
         rb.velocity = moveDir * moveSpeed;
     }
 }

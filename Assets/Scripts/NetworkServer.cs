@@ -20,7 +20,7 @@ public class NetworkServer : MonoBehaviour
     public ushort serverPort;
     private NativeList<NetworkConnection> m_Connections; //To hold our connections
 
-    void Start ()
+    void Start()
     {
         m_Driver = NetworkDriver.Create(); // just makes sure you are creating your driver without any parameters.
         var endpoint = NetworkEndPoint.AnyIpv4;
@@ -95,7 +95,7 @@ public class NetworkServer : MonoBehaviour
                 //We are now ready to process events. Lets start with the Data event.
                 if (cmd == NetworkEvent.Type.Data)
                 {
-                    OnData(stream, i); //If it was data
+                    OnData(stream, i, m_Connections[i]); //If it was data
                 }
                 //Finally, you need to handle the disconnect case. This is pretty straight forward, 
                 //if you receive a disconnect message you need to reset that connection to a default(NetworkConnection).
@@ -120,30 +120,35 @@ public class NetworkServer : MonoBehaviour
         // SendToClient(JsonUtility.ToJson(m),c);        
     }
 
-    void OnData(DataStreamReader stream, int i)
+    void OnData(DataStreamReader stream, int i, NetworkConnection client)
     {
-        NativeArray<byte> bytes = new NativeArray<byte>(stream.Length,Allocator.Temp); //Where to store bytes data
+        NativeArray<byte> bytes = new NativeArray<byte>(stream.Length, Allocator.Temp); //Where to store bytes data
         stream.ReadBytes(bytes); //Get bytes data from stream
         string recMsg = Encoding.ASCII.GetString(bytes.ToArray()); //convert bytes data to string(JSON)
         NetworkHeader header = JsonUtility.FromJson<NetworkHeader>(recMsg); //convert JSON to c# object
 
-        switch(header.cmd)
+        switch (header.cmd)
         {
             case Commands.HANDSHAKE:
-            HandshakeMsg hsMsg = JsonUtility.FromJson<HandshakeMsg>(recMsg);
-            Debug.Log("Handshake message received!");
-            break;
+                HandshakeMsg hsMsg = JsonUtility.FromJson<HandshakeMsg>(recMsg);
+                Debug.Log("Handshake message received!");
+                break;
+
             case Commands.PLAYER_UPDATE:
-            PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
-            Debug.Log("Player update message received!");
-            break;
+                PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
+                //Debug.Log("Player update message received!");
+                Debug.Log("Got data from client, Player Pos: " + puMsg.player.pos);
+                TestSendBack(client, puMsg);
+                break;
+
             case Commands.SERVER_UPDATE:
-            ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
-            Debug.Log("Server update message received!");
-            break;
+                ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
+                Debug.Log("Server update message received!");
+                break;
+
             default:
-            Debug.Log("SERVER ERROR: Unrecognized message received!");
-            break;
+                Debug.Log("SERVER ERROR: Unrecognized message received!");
+                break;
         }
     }
 
@@ -168,5 +173,12 @@ public class NetworkServer : MonoBehaviour
         m_Driver.EndSend(writer);
     }
 
-
+    void TestSendBack(NetworkConnection c, PlayerUpdateMsg gotFromClient)
+    {
+        // Example to send a handshake message:
+        PlayerUpdateMsg m = new PlayerUpdateMsg();
+        m.player.id = c.InternalId.ToString();
+        m.player.pos = gotFromClient.player.pos;
+        SendToClient(JsonUtility.ToJson(m), c);
+    }
 }

@@ -15,8 +15,8 @@ public class NetworkClient : MonoBehaviour
 
     [SerializeField]
     Transform player = null;
-    
-    void Start ()
+
+    void Start()
     {
         m_Driver = NetworkDriver.Create(); //creat socket
 
@@ -24,9 +24,8 @@ public class NetworkClient : MonoBehaviour
 
         //serverIP = "3.15.221.96";
         serverIP = "127.0.0.1";
-        var endpoint = NetworkEndPoint.Parse(serverIP,serverPort); 
+        var endpoint = NetworkEndPoint.Parse(serverIP, serverPort);
         m_Connection = m_Driver.Connect(endpoint); //connect to server
-
     }
 
     public void OnDestroy()
@@ -82,6 +81,10 @@ public class NetworkClient : MonoBehaviour
     void OnConnect()
     {
         Debug.Log("We are now connected to the server");
+        Debug.Log("Connection ID: " + m_Connection.InternalId.ToString());
+
+
+        InvokeRepeating("SendPlayerPosition", 0, 1); //Start sending player's position to server
 
         //// Example to send a handshake message:
         // HandshakeMsg m = new HandshakeMsg();
@@ -92,31 +95,32 @@ public class NetworkClient : MonoBehaviour
 
     void OnData(DataStreamReader stream)
     {
-        NativeArray<byte> bytes = new NativeArray<byte>(stream.Length,Allocator.Temp);
+        NativeArray<byte> bytes = new NativeArray<byte>(stream.Length, Allocator.Temp);
         stream.ReadBytes(bytes); //Get bytes
         string recMsg = Encoding.ASCII.GetString(bytes.ToArray()); //convert bytes to JSON string
         NetworkHeader header = JsonUtility.FromJson<NetworkHeader>(recMsg); //convert JSON to c# class
 
-        switch(header.cmd)
+        switch (header.cmd)
         {
             case Commands.HANDSHAKE:
-            HandshakeMsg hsMsg = JsonUtility.FromJson<HandshakeMsg>(recMsg);
-            Debug.Log("Handshake message received!");
-            break;
+                HandshakeMsg hsMsg = JsonUtility.FromJson<HandshakeMsg>(recMsg);
+                Debug.Log("Handshake message received!");
+                break;
 
             case Commands.PLAYER_UPDATE:
-            PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
-            Debug.Log("Player update message received!");
-            break;
+                PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
+                //Debug.Log("Player update message received!");
+                Debug.Log("Got data from server, player Pos: " + puMsg.player.pos);
+                break;
 
             case Commands.SERVER_UPDATE:
-            ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
-            Debug.Log("Server update message received!");
-            break;
+                ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
+                Debug.Log("Server update message received!");
+                break;
 
             default:
-            Debug.Log("Unrecognized message received!");
-            break;
+                Debug.Log("Unrecognized message received!");
+                break;
         }
     }
 
@@ -142,6 +146,25 @@ public class NetworkClient : MonoBehaviour
     {
         m_Connection.Disconnect(m_Driver);
         m_Connection = default(NetworkConnection);
+    }
+
+
+    void SendPlayerPosition()
+    {
+        //player.position
+
+        //// Example to send a handshake message:
+        //HandshakeMsg m = new HandshakeMsg();
+        //m.player.id = m_Connection.InternalId.ToString();
+        //SendToServer(JsonUtility.ToJson(m));
+
+        PlayerUpdateMsg m = new PlayerUpdateMsg();
+        m.player.id = m_Connection.InternalId.ToString();
+        m.player.pos = player.position;
+
+        SendToServer(JsonUtility.ToJson(m));
+
+        //SendToServer();
     }
 
 }
