@@ -13,6 +13,8 @@ public class NetworkClient : MonoBehaviour
     public string serverIP;
     public ushort serverPort;
 
+    [SerializeField]
+    Transform player = null;
     
     void Start ()
     {
@@ -20,8 +22,11 @@ public class NetworkClient : MonoBehaviour
 
         m_Connection = default(NetworkConnection);
 
+        //serverIP = "3.15.221.96";
+        serverIP = "127.0.0.1";
         var endpoint = NetworkEndPoint.Parse(serverIP,serverPort); 
         m_Connection = m_Driver.Connect(endpoint); //connect to server
+
     }
 
     public void OnDestroy()
