@@ -9,6 +9,9 @@ Data from server to client:   c# class -> (ToJson) -> JSON string -> (GetBytes) 
 using UnityEngine;
 using UnityEngine.Assertions;
 using Unity.Collections;
+//using Unity.Collections.Generic;
+using System.Collections;
+using System.Collections.Generic;
 using Unity.Networking.Transport;
 using NetworkMessages;
 using System;
@@ -19,6 +22,11 @@ public class NetworkServer : MonoBehaviour
     public NetworkDriver m_Driver; //similar to socket
     public ushort serverPort;
     private NativeList<NetworkConnection> m_Connections; //To hold our connections
+
+    //private ServerUpdateMsg listOfPlayers = new ServerUpdateMsg();
+    private Dictionary<string, NetworkObjects.NetworkPlayer> listOfClients = new Dictionary<string, NetworkObjects.NetworkPlayer>(); //Dictionary for all clients
+    float lastTimeSendAllPlayerInfo = 0f;
+    float intervalOfSendingAllPlayerInfo = 1f; //every 1 seconds, send all player info to all clients
 
     void Start()
     {
@@ -35,6 +43,8 @@ public class NetworkServer : MonoBehaviour
 
         //Finally we create a NativeList to hold all the connections.
         m_Connections = new NativeList<NetworkConnection>(16, Allocator.Persistent);
+
+        //InvokeRepeating("SendAllPlayerInfoToClinet", 0, 1.0f);
     }
 
     public void OnDestroy()
@@ -108,11 +118,36 @@ public class NetworkServer : MonoBehaviour
                 cmd = m_Driver.PopEventForConnection(m_Connections[i], out stream);
             }
         }
+
+        //Every interval, send all info to all clients
+        if (Time.time - lastTimeSendAllPlayerInfo >= intervalOfSendingAllPlayerInfo)
+        {
+            lastTimeSendAllPlayerInfo = Time.time;
+
+            SendAllPlayerInfoToClinet();
+            //Debug.Log("Send all player info to client");
+        }
     }
     void OnConnect(NetworkConnection c)
     {
         m_Connections.Add(c);
+        //listOfPlayers.players.
         Debug.Log("Accepted a connection");
+
+        //////////////////Send existed players info to new client/////////////////
+        ServerUpdateMsg m = new ServerUpdateMsg();
+        m.cmd = Commands.SPAWN_EXISTED_PLAYERS;
+
+        //Copy player data to mesage
+        foreach (KeyValuePair<string, NetworkObjects.NetworkPlayer> element in listOfClients)
+        {
+            m.players.Add(element.Value);
+        }
+
+        //Send existed player info
+        Assert.IsTrue(c.IsCreated); //only when it's true
+        SendToClient(JsonUtility.ToJson(m), c);
+        ////////////////////////////////////////////////////////////////////////////
 
         //// Example to send a handshake message:
         // HandshakeMsg m = new HandshakeMsg();
@@ -136,9 +171,10 @@ public class NetworkServer : MonoBehaviour
 
             case Commands.PLAYER_UPDATE:
                 PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
+                listOfClients[puMsg.player.id] = puMsg.player;
                 //Debug.Log("Player update message received!");
-                Debug.Log("Got data from client, Player Pos: " + puMsg.player.pos);
-                TestSendBack(client, puMsg);
+                //Debug.Log("Got data from client, Player Pos: " + puMsg.player.pos);
+                //TestSendBack(client, puMsg);
                 break;
 
             case Commands.SERVER_UPDATE:
@@ -173,12 +209,31 @@ public class NetworkServer : MonoBehaviour
         m_Driver.EndSend(writer);
     }
 
-    void TestSendBack(NetworkConnection c, PlayerUpdateMsg gotFromClient)
+    //void TestSendBack(NetworkConnection c, PlayerUpdateMsg gotFromClient)
+    //{
+    //    // Example to send a handshake message:
+    //    PlayerUpdateMsg m = new PlayerUpdateMsg();
+    //    m.player.id = c.InternalId.ToString();
+    //    m.player.pos = gotFromClient.player.pos;
+    //    SendToClient(JsonUtility.ToJson(m), c);
+    //}
+
+    void SendAllPlayerInfoToClinet()
     {
-        // Example to send a handshake message:
-        PlayerUpdateMsg m = new PlayerUpdateMsg();
-        m.player.id = c.InternalId.ToString();
-        m.player.pos = gotFromClient.player.pos;
-        SendToClient(JsonUtility.ToJson(m), c);
+        ServerUpdateMsg m = new ServerUpdateMsg();
+
+        //Copy player data to mesage
+        foreach (KeyValuePair<string, NetworkObjects.NetworkPlayer> element in listOfClients)
+        {
+            m.players.Add(element.Value);
+        }
+
+        //Send message to all client
+        for (int i = 0; i < m_Connections.Length; i++)
+        {
+            Assert.IsTrue(m_Connections[i].IsCreated); //only when it's true
+
+            SendToClient(JsonUtility.ToJson(m), m_Connections[i]);
+        }
     }
 }

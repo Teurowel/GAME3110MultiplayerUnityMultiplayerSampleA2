@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 using Unity.Collections;
+using System.Collections;
+using System.Collections.Generic;
 using Unity.Networking.Transport;
 using NetworkMessages;
 using NetworkObjects;
@@ -13,8 +15,13 @@ public class NetworkClient : MonoBehaviour
     public string serverIP;
     public ushort serverPort;
 
+    private Dictionary<string, GameObject> listOfClients = new Dictionary<string, GameObject>(); //Dictionary for all clients
+
     [SerializeField]
     Transform player = null;
+
+    [SerializeField]
+    GameObject clientAvatar = null; //avatar for other client
 
     void Start()
     {
@@ -116,6 +123,18 @@ public class NetworkClient : MonoBehaviour
             case Commands.SERVER_UPDATE:
                 ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
                 Debug.Log("Server update message received!");
+                for(int i = 0; i< suMsg.players.Count; ++i)
+                {
+                    Debug.Log(i + " client pos: " + suMsg.players[i].pos);
+                }
+                break;
+            //To spawn existed players
+            case Commands.SPAWN_EXISTED_PLAYERS:
+                ServerUpdateMsg existedPlayerInfo = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
+                Debug.Log("existed player info received!");
+
+                SpawnExistedPlayer(existedPlayerInfo);
+
                 break;
 
             default:
@@ -164,7 +183,21 @@ public class NetworkClient : MonoBehaviour
 
         SendToServer(JsonUtility.ToJson(m));
 
-        //SendToServer();
+    }
+
+    //Spawn existed player in server
+    void SpawnExistedPlayer(ServerUpdateMsg data)
+    {
+        for(int i = 0; i < data.players.Count; ++i)
+        {
+            GameObject avatar = Instantiate(clientAvatar);
+
+            listOfClients[data.players[i].id] = avatar;
+            avatar.transform.position = data.players[i].pos;
+
+
+        }
+        
     }
 
 }
