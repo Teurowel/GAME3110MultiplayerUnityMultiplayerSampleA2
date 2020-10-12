@@ -10,7 +10,7 @@ using UnityEngine;
 using UnityEngine.Assertions;
 using Unity.Collections;
 //using Unity.Collections.Generic;
-using System.Collections;
+//using System.Collections;
 using System.Collections.Generic;
 using Unity.Networking.Transport;
 using NetworkMessages;
@@ -25,8 +25,12 @@ public class NetworkServer : MonoBehaviour
 
     //private ServerUpdateMsg listOfPlayers = new ServerUpdateMsg();
     private Dictionary<string, NetworkObjects.NetworkPlayer> listOfClients = new Dictionary<string, NetworkObjects.NetworkPlayer>(); //Dictionary for all clients
+
     float lastTimeSendAllPlayerInfo = 0f;
-    float intervalOfSendingAllPlayerInfo = 1f; //every 1 seconds, send all player info to all clients
+    float intervalOfSendingAllPlayerInfo = 0.03f; //every 1 seconds, send all player info to all clients
+
+    float lastTimeChangeColorOfPlayers = 0f;
+    float intervalOfChangeColorOfPlayers = 1f; //every 1 seconds change color of players
 
     void Start()
     {
@@ -126,6 +130,12 @@ public class NetworkServer : MonoBehaviour
 
             SendAllPlayerInfoToClinet();
             //Debug.Log("Send all player info to client");
+        }
+
+        if (Time.time - lastTimeChangeColorOfPlayers >= intervalOfChangeColorOfPlayers)
+        {
+            lastTimeChangeColorOfPlayers = Time.time;
+            ChangeColorOfClient();
         }
     }
     void OnConnect(NetworkConnection c)
@@ -274,7 +284,17 @@ public class NetworkServer : MonoBehaviour
     {
         if (listOfClients.ContainsKey(puMsg.player.id))
         {
-            listOfClients[puMsg.player.id] = puMsg.player;
+            listOfClients[puMsg.player.id].id = puMsg.player.id;
+            listOfClients[puMsg.player.id].pos = puMsg.player.pos;
+        }
+    }
+
+    void ChangeColorOfClient()
+    {
+        Debug.Log("Change color");
+        foreach (KeyValuePair<string, NetworkObjects.NetworkPlayer> element in listOfClients)
+        {
+            element.Value.color = new Color(UnityEngine.Random.Range(0f, 1f), UnityEngine.Random.Range(0f, 1f), UnityEngine.Random.Range(0f, 1f));
         }
     }
 }

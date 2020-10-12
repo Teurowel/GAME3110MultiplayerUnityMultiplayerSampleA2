@@ -25,6 +25,8 @@ public class NetworkClient : MonoBehaviour
 
     PlayerUpdateMsg playerInfo = new PlayerUpdateMsg(); //This will be player's info that will be sent to server
 
+    TextMesh playerInternalIdText = null;
+
     void Start()
     {
       
@@ -37,7 +39,7 @@ public class NetworkClient : MonoBehaviour
         var endpoint = NetworkEndPoint.Parse(serverIP, serverPort);
         m_Connection = m_Driver.Connect(endpoint); //connect to server
 
-        
+        playerInternalIdText = player.gameObject.GetComponentInChildren<TextMesh>();
     }
 
     public void OnDestroy()
@@ -96,8 +98,8 @@ public class NetworkClient : MonoBehaviour
 
         //Debug.Log("My IP: " + m_Driver.);
         //Debug.Log("My PORT: " + m_Driver.LocalEndPoint().Port);
-
-        InvokeRepeating("SendPlayerInfo", 0, 1); //Start sending player's position to server
+        
+        InvokeRepeating("SendPlayerInfo", 0.1f, 0.03f); //Start sending player's position to server
 
         //// Example to send a handshake message:
         // HandshakeMsg m = new HandshakeMsg();
@@ -123,7 +125,8 @@ public class NetworkClient : MonoBehaviour
             case Commands.PLAYER_INTERNALID:
                 PlayerUpdateMsg internalId = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
                 Debug.Log("Got internalId from server");
-                playerInfo.player.id = internalId.player.id;    
+                playerInfo.player.id = internalId.player.id;
+                playerInternalIdText.text = playerInfo.player.id;
                 break;
 
             case Commands.PLAYER_UPDATE:
@@ -195,6 +198,7 @@ public class NetworkClient : MonoBehaviour
 
 
         playerInfo.player.pos = player.position;
+        playerInfo.player.color = player.gameObject.GetComponent<Renderer>().material.color;
 
         SendToServer(JsonUtility.ToJson(playerInfo));
 
@@ -209,6 +213,8 @@ public class NetworkClient : MonoBehaviour
 
             listOfClients[data.players[i].id] = avatar;
             avatar.transform.position = data.players[i].pos;
+
+            avatar.GetComponentInChildren<TextMesh>().text = data.players[i].id;
         } 
     }
 
@@ -217,6 +223,7 @@ public class NetworkClient : MonoBehaviour
         GameObject avatar = Instantiate(clientAvatar);
 
         listOfClients[data.player.id] = avatar;
+        avatar.GetComponentInChildren<TextMesh>().text = data.player.id;
     }
 
     //Update all client info with data from server
@@ -227,6 +234,13 @@ public class NetworkClient : MonoBehaviour
             if (listOfClients.ContainsKey(data.players[i].id))
             {
                 listOfClients[data.players[i].id].transform.position = data.players[i].pos;
+                listOfClients[data.players[i].id].GetComponent<Renderer>().material.color = data.players[i].color;
+            }
+            //My info, my information is not in listOfClients
+            else if(playerInfo.player.id == data.players[i].id)
+            {
+                player.gameObject.GetComponent<Renderer>().material.color = data.players[i].color;
+                playerInfo.player.color = data.players[i].color;
             }
         }
     }
