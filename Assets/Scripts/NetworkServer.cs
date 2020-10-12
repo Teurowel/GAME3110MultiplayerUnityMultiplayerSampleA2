@@ -25,6 +25,7 @@ public class NetworkServer : MonoBehaviour
 
     //private ServerUpdateMsg listOfPlayers = new ServerUpdateMsg();
     private Dictionary<string, NetworkObjects.NetworkPlayer> listOfClients = new Dictionary<string, NetworkObjects.NetworkPlayer>(); //Dictionary for all clients
+    private Dictionary<string, float> clientsHeartBeat = new Dictionary<string, float>(); //check if client keep sending msg
 
     float lastTimeSendAllPlayerInfo = 0f;
     float intervalOfSendingAllPlayerInfo = 0.03f; //every 1 seconds, send all player info to all clients
@@ -34,6 +35,7 @@ public class NetworkServer : MonoBehaviour
 
     void Start()
     {
+
         m_Driver = NetworkDriver.Create(); // just makes sure you are creating your driver without any parameters.
         var endpoint = NetworkEndPoint.AnyIpv4;
         endpoint.Port = serverPort;
@@ -110,6 +112,9 @@ public class NetworkServer : MonoBehaviour
                 if (cmd == NetworkEvent.Type.Data)
                 {
                     OnData(stream, i, m_Connections[i]); //If it was data
+
+                    //Update heart beat
+                    clientsHeartBeat[m_Connections[i].InternalId.ToString()] = Time.time;
                 }
                 //Finally, you need to handle the disconnect case. This is pretty straight forward, 
                 //if you receive a disconnect message you need to reset that connection to a default(NetworkConnection).
@@ -132,11 +137,14 @@ public class NetworkServer : MonoBehaviour
             //Debug.Log("Send all player info to client");
         }
 
+        //Change color of client
         if (Time.time - lastTimeChangeColorOfPlayers >= intervalOfChangeColorOfPlayers)
         {
             lastTimeChangeColorOfPlayers = Time.time;
             ChangeColorOfClient();
         }
+
+        HeartBeatCheck();
     }
     void OnConnect(NetworkConnection c)
     {
@@ -233,7 +241,7 @@ public class NetworkServer : MonoBehaviour
 
     void OnDisconnect(int i)
     {
-        Debug.Log("Client disconnected from server");
+        Debug.Log("Client " + m_Connections[i].InternalId.ToString() + " disconnected from server");
         m_Connections[i] = default(NetworkConnection);
     }
 
@@ -295,6 +303,49 @@ public class NetworkServer : MonoBehaviour
         foreach (KeyValuePair<string, NetworkObjects.NetworkPlayer> element in listOfClients)
         {
             element.Value.color = new Color(UnityEngine.Random.Range(0f, 1f), UnityEngine.Random.Range(0f, 1f), UnityEngine.Random.Range(0f, 1f));
+        }
+    }
+
+    void HeartBeatCheck()
+    {
+        //Check heartBeat
+        List<string> deleteList = new List<string>();
+        foreach (KeyValuePair<string, float> element in clientsHeartBeat)
+        {
+            //If client does not send msg over 5seconds...
+            if (Time.time - element.Value >= 5f)
+            {
+                Debug.Log(element.Key.ToString() + "heatbeat disconnected");
+                deleteList.Add(element.Key);
+            }
+        }
+
+        if (deleteList.Count != 0)
+        {
+            //Delete disconnected client from list
+            for (int i = 0; i < deleteList.Count; ++i)
+            {
+                listOfClients.Remove(deleteList[i]);
+                clientsHeartBeat.Remove(deleteList[i]);
+            }
+
+            DisconnectedPlayersMsg dpm = new DisconnectedPlayersMsg();
+            dpm.disconnectedPlayers = deleteList;
+
+
+            //Send message to all client
+            for (int i = 0; i < m_Connections.Length; i++)
+            {
+                //If disconnected connection.. continue
+                if (deleteList.Contains(m_Connections[i].InternalId.ToString()) == true)
+                {
+                    continue;
+                }
+
+                Assert.IsTrue(m_Connections[i].IsCreated); //only when it's true
+
+                SendToClient(JsonUtility.ToJson(dpm), m_Connections[i]);
+            }
         }
     }
 }

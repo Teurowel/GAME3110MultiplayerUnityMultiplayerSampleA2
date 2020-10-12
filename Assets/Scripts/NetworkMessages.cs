@@ -12,7 +12,8 @@ namespace NetworkMessages
         PLAYER_INPUT,
         SPAWN_EXISTED_PLAYERS,
         SPAWN_NEW_PLAYER,
-        PLAYER_INTERNALID
+        PLAYER_INTERNALID,
+        DISCONNECTED_PLAYER
     }
 
     [System.Serializable]
@@ -22,7 +23,7 @@ namespace NetworkMessages
     }
 
     [System.Serializable]
-    public class HandshakeMsg:NetworkHeader
+    public class HandshakeMsg : NetworkHeader
     {
         public NetworkObjects.NetworkPlayer player;
 
@@ -32,11 +33,11 @@ namespace NetworkMessages
             player = new NetworkObjects.NetworkPlayer();
         }
     }
-    
+
 
 
     [System.Serializable]
-    public class PlayerUpdateMsg:NetworkHeader
+    public class PlayerUpdateMsg : NetworkHeader
     {
         public NetworkObjects.NetworkPlayer player;
         public PlayerUpdateMsg()
@@ -49,7 +50,7 @@ namespace NetworkMessages
 
 
 
-    public class PlayerInputMsg:NetworkHeader
+    public class PlayerInputMsg : NetworkHeader
     {
         public Input myInput;
         public PlayerInputMsg()
@@ -61,7 +62,7 @@ namespace NetworkMessages
 
 
     [System.Serializable]
-    public class  ServerUpdateMsg:NetworkHeader
+    public class ServerUpdateMsg : NetworkHeader
     {
         public List<NetworkObjects.NetworkPlayer> players;
         public ServerUpdateMsg()
@@ -70,7 +71,18 @@ namespace NetworkMessages
             players = new List<NetworkObjects.NetworkPlayer>();
         }
     }
-} 
+
+    [System.Serializable]
+    public class DisconnectedPlayersMsg : NetworkHeader
+    {
+        public List<string> disconnectedPlayers;
+        public DisconnectedPlayersMsg()
+        {      // Constructor
+            cmd = Commands.DISCONNECTED_PLAYER;
+            disconnectedPlayers = new List<string>();
+        }
+    }
+}
 
 
 

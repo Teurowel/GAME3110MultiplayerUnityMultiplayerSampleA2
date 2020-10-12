@@ -44,6 +44,8 @@ public class NetworkClient : MonoBehaviour
 
     public void OnDestroy()
     {
+        //Disconnect();
+
         //Both NetworkDriver and NativeList allocate unmanaged memory and need to be disposed. 
         //To make sure this happens we can simply call the Dispose method when we are done with both of them.
         m_Driver.Dispose();
@@ -155,6 +157,12 @@ public class NetworkClient : MonoBehaviour
                 SpawnNewPlayer(newPlayerInfo);
                 break;
 
+            //handle disconnected player
+            case Commands.DISCONNECTED_PLAYER:
+                DisconnectedPlayersMsg dpm = JsonUtility.FromJson<DisconnectedPlayersMsg>(recMsg);
+                Debug.Log("Disconnected player info recieved!");
+                DeleteDisconnectPlayer(dpm);
+                break;
 
             default:
                 Debug.Log("Unrecognized message received!");
@@ -182,6 +190,7 @@ public class NetworkClient : MonoBehaviour
 
     void Disconnect()
     {
+        Debug.Log("Disconnect from server");
         m_Connection.Disconnect(m_Driver);
         m_Connection = default(NetworkConnection);
     }
@@ -244,4 +253,17 @@ public class NetworkClient : MonoBehaviour
             }
         }
     }
+
+    void DeleteDisconnectPlayer(DisconnectedPlayersMsg data)
+    {
+        for(int i = 0; i < data.disconnectedPlayers.Count; ++i)
+        {
+            if (listOfClients.ContainsKey(data.disconnectedPlayers[i]))
+            {
+                Destroy(listOfClients[data.disconnectedPlayers[i]]);
+                listOfClients.Remove(data.disconnectedPlayers[i]);
+            }
+        }
+    }
+
 }
