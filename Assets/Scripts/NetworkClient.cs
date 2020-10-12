@@ -23,8 +23,11 @@ public class NetworkClient : MonoBehaviour
     [SerializeField]
     GameObject clientAvatar = null; //avatar for other client
 
+    PlayerUpdateMsg playerInfo = new PlayerUpdateMsg(); //This will be player's info that will be sent to server
+
     void Start()
     {
+      
         m_Driver = NetworkDriver.Create(); //creat socket
 
         m_Connection = default(NetworkConnection);
@@ -33,6 +36,8 @@ public class NetworkClient : MonoBehaviour
         serverIP = "127.0.0.1";
         var endpoint = NetworkEndPoint.Parse(serverIP, serverPort);
         m_Connection = m_Driver.Connect(endpoint); //connect to server
+
+        
     }
 
     public void OnDestroy()
@@ -88,10 +93,11 @@ public class NetworkClient : MonoBehaviour
     void OnConnect()
     {
         Debug.Log("We are now connected to the server");
-        Debug.Log("Connection ID: " + m_Connection.InternalId.ToString());
 
+        //Debug.Log("My IP: " + m_Driver.);
+        //Debug.Log("My PORT: " + m_Driver.LocalEndPoint().Port);
 
-        InvokeRepeating("SendPlayerPosition", 0, 1); //Start sending player's position to server
+        InvokeRepeating("SendPlayerInfo", 0, 1); //Start sending player's position to server
 
         //// Example to send a handshake message:
         // HandshakeMsg m = new HandshakeMsg();
@@ -114,6 +120,12 @@ public class NetworkClient : MonoBehaviour
                 Debug.Log("Handshake message received!");
                 break;
 
+            case Commands.PLAYER_INTERNALID:
+                PlayerUpdateMsg internalId = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
+                Debug.Log("Got internalId from server");
+                playerInfo.player.id = internalId.player.id;    
+                break;
+
             case Commands.PLAYER_UPDATE:
                 PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
                 //Debug.Log("Player update message received!");
@@ -123,19 +135,23 @@ public class NetworkClient : MonoBehaviour
             case Commands.SERVER_UPDATE:
                 ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
                 Debug.Log("Server update message received!");
-                for(int i = 0; i< suMsg.players.Count; ++i)
-                {
-                    Debug.Log(i + " client pos: " + suMsg.players[i].pos);
-                }
+                UpdateClientsInfo(suMsg);
                 break;
+
             //To spawn existed players
             case Commands.SPAWN_EXISTED_PLAYERS:
                 ServerUpdateMsg existedPlayerInfo = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
                 Debug.Log("existed player info received!");
-
                 SpawnExistedPlayer(existedPlayerInfo);
-
                 break;
+
+            //Spawn new player
+            case Commands.SPAWN_NEW_PLAYER:
+                PlayerUpdateMsg newPlayerInfo = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
+                Debug.Log("new client info received!");
+                SpawnNewPlayer(newPlayerInfo);
+                break;
+
 
             default:
                 Debug.Log("Unrecognized message received!");
@@ -168,7 +184,7 @@ public class NetworkClient : MonoBehaviour
     }
 
 
-    void SendPlayerPosition()
+    void SendPlayerInfo()
     {
         //player.position
 
@@ -177,11 +193,10 @@ public class NetworkClient : MonoBehaviour
         //m.player.id = m_Connection.InternalId.ToString();
         //SendToServer(JsonUtility.ToJson(m));
 
-        PlayerUpdateMsg m = new PlayerUpdateMsg();
-        m.player.id = m_Connection.InternalId.ToString();
-        m.player.pos = player.position;
 
-        SendToServer(JsonUtility.ToJson(m));
+        playerInfo.player.pos = player.position;
+
+        SendToServer(JsonUtility.ToJson(playerInfo));
 
     }
 
@@ -194,10 +209,25 @@ public class NetworkClient : MonoBehaviour
 
             listOfClients[data.players[i].id] = avatar;
             avatar.transform.position = data.players[i].pos;
-
-
-        }
-        
+        } 
     }
 
+    void SpawnNewPlayer(PlayerUpdateMsg data)
+    {
+        GameObject avatar = Instantiate(clientAvatar);
+
+        listOfClients[data.player.id] = avatar;
+    }
+
+    //Update all client info with data from server
+    void UpdateClientsInfo(ServerUpdateMsg data)
+    {
+        for (int i = 0; i < data.players.Count; ++i)
+        {
+            if (listOfClients.ContainsKey(data.players[i].id))
+            {
+                listOfClients[data.players[i].id].transform.position = data.players[i].pos;
+            }
+        }
+    }
 }

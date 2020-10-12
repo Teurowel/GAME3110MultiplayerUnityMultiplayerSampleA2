@@ -10,7 +10,9 @@ namespace NetworkMessages
         SERVER_UPDATE,
         HANDSHAKE,
         PLAYER_INPUT,
-        SPAWN_EXISTED_PLAYERS
+        SPAWN_EXISTED_PLAYERS,
+        SPAWN_NEW_PLAYER,
+        PLAYER_INTERNALID
     }
 
     [System.Serializable]

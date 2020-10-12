@@ -130,24 +130,56 @@ public class NetworkServer : MonoBehaviour
     }
     void OnConnect(NetworkConnection c)
     {
-        m_Connections.Add(c);
-        //listOfPlayers.players.
         Debug.Log("Accepted a connection");
 
+        ////////////////////Send internal id of connection to new client//////////////////
+        PlayerUpdateMsg internalIdMsg = new PlayerUpdateMsg();
+        internalIdMsg.cmd = Commands.PLAYER_INTERNALID;
+        internalIdMsg.player.id = c.InternalId.ToString();
+        Assert.IsTrue(c.IsCreated); //only when it's true
+        SendToClient(JsonUtility.ToJson(internalIdMsg), c);
+        ////////////////////////////////////////////////////////////////////////////
+
+
+
         //////////////////Send existed players info to new client/////////////////
-        ServerUpdateMsg m = new ServerUpdateMsg();
-        m.cmd = Commands.SPAWN_EXISTED_PLAYERS;
+        ServerUpdateMsg existedPlayers = new ServerUpdateMsg();
+        existedPlayers.cmd = Commands.SPAWN_EXISTED_PLAYERS;
 
         //Copy player data to mesage
         foreach (KeyValuePair<string, NetworkObjects.NetworkPlayer> element in listOfClients)
         {
-            m.players.Add(element.Value);
+            existedPlayers.players.Add(element.Value);
         }
 
         //Send existed player info
         Assert.IsTrue(c.IsCreated); //only when it's true
-        SendToClient(JsonUtility.ToJson(m), c);
+        SendToClient(JsonUtility.ToJson(existedPlayers), c);
         ////////////////////////////////////////////////////////////////////////////
+
+
+
+        ////////////////////Send new client info to existed player////////////////////
+        PlayerUpdateMsg newPlayerMsg = new PlayerUpdateMsg();
+        newPlayerMsg.cmd = Commands.SPAWN_NEW_PLAYER;
+        newPlayerMsg.player.id = c.InternalId.ToString();
+
+        //Send message to all client
+        for (int i = 0; i < m_Connections.Length; i++)
+        {
+            Assert.IsTrue(m_Connections[i].IsCreated); //only when it's true
+
+            SendToClient(JsonUtility.ToJson(newPlayerMsg), m_Connections[i]);
+        }
+        ////////////////////////////////////////////////////////////////////////////
+
+
+
+        //Add new connection to connection list
+        m_Connections.Add(c);
+
+        //Add to list of client
+        listOfClients[c.InternalId.ToString()] = new NetworkObjects.NetworkPlayer();
 
         //// Example to send a handshake message:
         // HandshakeMsg m = new HandshakeMsg();
@@ -171,7 +203,8 @@ public class NetworkServer : MonoBehaviour
 
             case Commands.PLAYER_UPDATE:
                 PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
-                listOfClients[puMsg.player.id] = puMsg.player;
+                Debug.Log("Got " + puMsg.player.id + " player Info");
+                UpdateClientInfo(puMsg);
                 //Debug.Log("Player update message received!");
                 //Debug.Log("Got data from client, Player Pos: " + puMsg.player.pos);
                 //TestSendBack(client, puMsg);
@@ -234,6 +267,14 @@ public class NetworkServer : MonoBehaviour
             Assert.IsTrue(m_Connections[i].IsCreated); //only when it's true
 
             SendToClient(JsonUtility.ToJson(m), m_Connections[i]);
+        }
+    }
+
+    void UpdateClientInfo(PlayerUpdateMsg puMsg)
+    {
+        if (listOfClients.ContainsKey(puMsg.player.id))
+        {
+            listOfClients[puMsg.player.id] = puMsg.player;
         }
     }
 }
