@@ -341,7 +341,7 @@ public class NetworkServer : MonoBehaviour
                 {
                     continue;
                 }
-
+ 
                 Assert.IsTrue(m_Connections[i].IsCreated); //only when it's true
 
                 SendToClient(JsonUtility.ToJson(dpm), m_Connections[i]);
